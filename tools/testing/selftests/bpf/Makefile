@@ -1,4 +1,5 @@
 CFLAGS += -Wall -O2 -I../../../../usr/include
+CFLAGS += -I../../../../bld_x64/usr/include
 
 test_objs = test_verifier test_maps test_lru_map
 
