@@ -3712,6 +3712,80 @@ static struct bpf_test tests[] = {
 		.result = REJECT,
 		.prog_type = BPF_PROG_TYPE_TRACEPOINT,
 	},
+	{
+		"stack: pointer math using imm",
+		.insns = {
+			BPF_MOV64_REG(BPF_REG_1, BPF_REG_10),
+			BPF_MOV64_IMM(BPF_REG_2, 0),
+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, -64),
+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
+			BPF_STX_MEM(BPF_DW, BPF_REG_1, BPF_REG_2, 0),
+			BPF_MOV64_IMM(BPF_REG_0, 0),
+			BPF_EXIT_INSN(),
+		},
+		/* It would be nice if this worked! */
+		.errstr = "R1 invalid mem access 'inv'",
+		.result = REJECT,
+	},
+	{
+		"map: pointer math using imm",
+		.insns = {
+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
+			BPF_ST_MEM(BPF_DW, BPF_REG_2, 0, 0),
+			BPF_LD_MAP_FD(BPF_REG_1, 0),
+			BPF_EMIT_CALL(BPF_FUNC_map_lookup_elem),
+			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 4),
+			BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
+			BPF_MOV64_IMM(BPF_REG_2, 0),
+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
+			BPF_STX_MEM(BPF_DW, BPF_REG_1, BPF_REG_2, 0),
+			BPF_EXIT_INSN(),
+		},
+		.fixup_map2 = { 3 },
+		/* Same logic of the previous test, but it works */
+		.result = ACCEPT,
+	},
+	{
+		"stack: pointer math using inv (range checked)",
+		.insns = {
+			BPF_MOV64_REG(BPF_REG_1, BPF_REG_10),
+			BPF_MOV64_IMM(BPF_REG_2, 0),
+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, -64),
+			BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_2, -128),
+			BPF_LDX_MEM(BPF_DW, BPF_REG_2, BPF_REG_10, -128),
+			BPF_ALU64_IMM(BPF_AND, BPF_REG_2, 8),
+			BPF_ALU64_REG(BPF_ADD, BPF_REG_1, BPF_REG_2),
+			BPF_STX_MEM(BPF_DW, BPF_REG_1, BPF_REG_2, 0),
+			BPF_MOV64_IMM(BPF_REG_0, 0),
+			BPF_EXIT_INSN(),
+		},
+		/* It would be nice if this worked! */
+		.errstr = "R1 invalid mem access 'inv'",
+		.result = REJECT,
+	},
+	{
+		"map: pointer math using inv (range checked)",
+		.insns = {
+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
+			BPF_ST_MEM(BPF_DW, BPF_REG_2, 0, 0),
+			BPF_LD_MAP_FD(BPF_REG_1, 0),
+			BPF_EMIT_CALL(BPF_FUNC_map_lookup_elem),
+			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 7),
+			BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
+			BPF_MOV64_IMM(BPF_REG_2, 0),
+			BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_2, -128),
+			BPF_LDX_MEM(BPF_DW, BPF_REG_2, BPF_REG_10, -128),
+			BPF_ALU64_IMM(BPF_AND, BPF_REG_2, 8),
+			BPF_ALU64_REG(BPF_ADD, BPF_REG_1, BPF_REG_2),
+			BPF_STX_MEM(BPF_DW, BPF_REG_1, BPF_REG_2, 0),
+			BPF_EXIT_INSN(),
+		},
+		.fixup_map2 = { 3 },
+		/* Same logic of the previous test, but it works */
+		.result = ACCEPT,
+	},
 };
 
 static int probe_filter_length(const struct bpf_insn *fp)
