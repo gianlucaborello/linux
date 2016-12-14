@@ -449,13 +449,21 @@ static const struct bpf_func_proto *kprobe_prog_func_proto(enum bpf_func_id func
 	}
 }
 
+/* XXX make sure this is implemented for all archs */
+#define PT_REGS_RC(x) ((x)->ax)
+
 /* bpf+kprobe programs can access fields of 'struct pt_regs' */
 static bool kprobe_prog_is_valid_access(int off, int size, enum bpf_access_type type,
 					enum bpf_reg_type *reg_type)
 {
 	if (off < 0 || off >= sizeof(struct pt_regs))
 		return false;
-	if (type != BPF_READ)
+	/* Deny all write accesses but allow kretprobes to change the return
+	 * value of the instrumented function
+	 */
+	if (type != BPF_READ &&
+	    (off != (long) &PT_REGS_RC((struct pt_regs *) 0) ||
+	     size != sizeof(PT_REGS_RC((struct pt_regs *) 0))))
 		return false;
 	if (off % size != 0)
 		return false;
